@@ -12,7 +12,7 @@ export async function GET(request, { params }) {
     return NextResponse.json(
       {
         success: true,
-        message: "ดึงข้อมูลผู้ใช้สำเร็จ",
+        message: `ดึงข้อมูลผู้ใช้ ID: ${id} สำเร็จ`,
       },
       { status: 200 }
     );
@@ -27,6 +27,7 @@ export async function GET(request, { params }) {
     );
   }
 }
+
 export async function PUT(request, { params }) {
   try {
     const { id } = await params;
@@ -35,7 +36,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json(
       {
         success: true,
-        message: "อัปเดตข้อมูลผู้ใช้สำเร็จ",
+        message: `อัปเดตข้อมูลผู้ใช้ ID: ${id} สำเร็จ`, // แทรก id ตรงนี้
       },
       { status: 200 }
     );
@@ -50,6 +51,7 @@ export async function PUT(request, { params }) {
     );
   }
 }
+
 export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
@@ -58,7 +60,7 @@ export async function DELETE(request, { params }) {
     return NextResponse.json(
       {
         success: true,
-        message: "ลบข้อมูลผู้ใช้สำเร็จ",
+        message: `ลบข้อมูลผู้ใช้ ID: ${id} สำเร็จ`, // แทรก id ตรงนี้
       },
       { status: 200 }
     );
@@ -68,6 +70,29 @@ export async function DELETE(request, { params }) {
         success: false,
         message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
         error: error instanceof Error ? error.message : "Internal Server Error",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request, { params }) {
+  try {
+    const { id } = await params;
+    console.log({ success: true, message: `อัปเดตข้อมูลผู้คน (PATCH) ที่ ${id} สำเร็จ`, status: 200 });
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: `อัปเดตข้อมูลผู้ใช้ (PATCH) ID: ${id} สำเร็จ`, // แทรก id ตรงนี้
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
       },
       { status: 500 }
     );
