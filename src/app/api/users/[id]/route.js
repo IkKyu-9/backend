@@ -1,99 +1,213 @@
-// นำเข้า NextResponse จาก next/server เพื่อใช้จัดการและส่งค่า HTTP Response กลับไปยังไคลเอนต์
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
+import db from '../../../lib/db';
 
-//================================================================================
-// GET By ID Function (/src/app/api/users/[id]/route.js)
-//================================================================================
-export async function GET(request, { params }) {
+const TABLE = 'tbl_employee';
+const PK = 'emp_id';
+const ALLOWED_FIELDS = [
+  'emp_firstname',
+  'emp_lastname',
+  'emp_department',
+  'emp_salary',
+];
+
+function parseId(rawId) {
+  const numId = Number(rawId);
+  if (!Number.isInteger(numId) || numId <= 0) {
+    return null;
+  }
+  return numId;
+}
+
+// GET /api/users/[id]
+export async function GET(request, context) {
   try {
-    const { id } = await params;
-    console.log({ success: true, message: `ดึงข้อมูลผู้คนที่ ${id} ใช้สำเร็จ`, status: 200 });
+    const { id } = await context.params;
+    const empId = parseId(id);
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: `ดึงข้อมูลผู้ใช้ ID: ${id} สำเร็จ`,
-      },
-      { status: 200 }
+    if (!empId) {
+      return NextResponse.json(
+        { status: 'error', message: 'Invalid employee ID' },
+        { status: 400 }
+      );
+    }
+
+    const [rows] = await db.query(
+      `SELECT * FROM ${TABLE} WHERE ${PK} = ? LIMIT 1`,
+      [empId]
     );
-  } catch (error) {
+
+    if (rows.length === 0) {
+      return NextResponse.json(
+        { status: 'error', message: 'Employee not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      status: 'ok',
+      data: rows[0],
+    });
+  } catch (err) {
+    console.error('Database GET error:', err);
     return NextResponse.json(
-      {
-        success: false,
-        message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-        error: error instanceof Error ? error.message : "Internal Server Error",
-      },
+      { error: 'Database error', details: err.message },
       { status: 500 }
     );
   }
 }
 
-export async function PUT(request, { params }) {
+// PUT /api/users/[id]
+export async function PUT(request, context) {
   try {
-    const { id } = await params;
-    console.log({ success: true, message: `อัปเดตข้อมูลผู้คนที่ ${id} ใช้สำเร็จ`, status: 200 });
+    const { id } = await context.params;
+    const empId = parseId(id);
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: `อัปเดตข้อมูลผู้ใช้ ID: ${id} สำเร็จ`, // แทรก id ตรงนี้
-      },
-      { status: 200 }
+    if (!empId) {
+      return NextResponse.json(
+        { status: 'error', message: 'Invalid employee ID' },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json();
+    const entries = Object.entries(body || {}).filter(([key]) =>
+      ALLOWED_FIELDS.includes(key)
     );
-  } catch (error) {
+
+    if (entries.length === 0) {
+      return NextResponse.json(
+        { status: 'error', message: 'Valid fields are required' },
+        { status: 400 }
+      );
+    }
+
+    const setClause = entries.map(([key]) => `\`${key}\` = ?`).join(', ');
+    const values = entries.map(([, value]) => value);
+
+    const [result] = await db.query(
+      `UPDATE ${TABLE} SET ${setClause} WHERE ${PK} = ?`,
+      [...values, empId]
+    );
+
+    if (result.affectedRows === 0) {
+      return NextResponse.json(
+        { status: 'error', message: 'Employee not found' },
+        { status: 404 }
+      );
+    }
+
+    const [updatedRows] = await db.query(
+      `SELECT * FROM ${TABLE} WHERE ${PK} = ? LIMIT 1`,
+      [empId]
+    );
+
+    return NextResponse.json({
+      status: 'ok',
+      message: 'Updated successfully',
+      data: updatedRows[0],
+    });
+  } catch (err) {
+    console.error('Database PUT error:', err);
     return NextResponse.json(
-      {
-        success: false,
-        message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-        error: error instanceof Error ? error.message : "Internal Server Error",
-      },
+      { error: 'Database error', details: err.message },
       { status: 500 }
     );
   }
 }
 
-export async function DELETE(request, { params }) {
+// PATCH /api/users/[id]
+export async function PATCH(request, context) {
   try {
-    const { id } = await params;
-    console.log({ success: true, message: `ลบข้อมูลผู้คนที่ ${id} ใช้สำเร็จ`, status: 200 });
+    const { id } = await context.params;
+    const empId = parseId(id);
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: `ลบข้อมูลผู้ใช้ ID: ${id} สำเร็จ`, // แทรก id ตรงนี้
-      },
-      { status: 200 }
+    if (!empId) {
+      return NextResponse.json(
+        { status: 'error', message: 'Invalid employee ID' },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json();
+    const entries = Object.entries(body || {}).filter(([key]) =>
+      ALLOWED_FIELDS.includes(key)
     );
-  } catch (error) {
+
+    if (entries.length === 0) {
+      return NextResponse.json(
+        { status: 'error', message: 'No valid fields to update' },
+        { status: 400 }
+      );
+    }
+
+    const setClause = entries.map(([key]) => `\`${key}\` = ?`).join(', ');
+    const values = entries.map(([, value]) => value);
+
+    const [result] = await db.query(
+      `UPDATE ${TABLE} SET ${setClause} WHERE ${PK} = ?`,
+      [...values, empId]
+    );
+
+    if (result.affectedRows === 0) {
+      return NextResponse.json(
+        { status: 'error', message: 'Employee not found' },
+        { status: 404 }
+      );
+    }
+
+    const [updatedRows] = await db.query(
+      `SELECT * FROM ${TABLE} WHERE ${PK} = ? LIMIT 1`,
+      [empId]
+    );
+
+    return NextResponse.json({
+      status: 'ok',
+      message: 'Patched successfully',
+      data: updatedRows[0],
+    });
+  } catch (err) {
+    console.error('Database PATCH error:', err);
     return NextResponse.json(
-      {
-        success: false,
-        message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-        error: error instanceof Error ? error.message : "Internal Server Error",
-      },
+      { error: 'Database error', details: err.message },
       { status: 500 }
     );
   }
 }
 
-export async function PATCH(request, { params }) {
+// DELETE /api/users/[id]
+export async function DELETE(request, context) {
   try {
-    const { id } = await params;
-    console.log({ success: true, message: `อัปเดตข้อมูลผู้คน (PATCH) ที่ ${id} สำเร็จ`, status: 200 });
+    const { id } = await context.params;
+    const empId = parseId(id);
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: `อัปเดตข้อมูลผู้ใช้ (PATCH) ID: ${id} สำเร็จ`, // แทรก id ตรงนี้
-      },
-      { status: 200 }
+    if (!empId) {
+      return NextResponse.json(
+        { status: 'error', message: 'Invalid employee ID' },
+        { status: 400 }
+      );
+    }
+
+    const [result] = await db.query(
+      `DELETE FROM ${TABLE} WHERE ${PK} = ?`,
+      [empId]
     );
-  } catch (error) {
+
+    if (result.affectedRows === 0) {
+      return NextResponse.json(
+        { status: 'error', message: 'Employee not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      status: 'ok',
+      message: 'Deleted successfully',
+      deletedId: empId,
+    });
+  } catch (err) {
+    console.error('Database DELETE error:', err);
     return NextResponse.json(
-      {
-        success: false,
-        message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
-      },
+      { error: 'Database error', details: err.message },
       { status: 500 }
     );
   }
